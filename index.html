@@ -199,11 +199,10 @@ canvas:active { cursor: grabbing; }
         </div>
       </div>
       <canvas id="mood-chart" height="160"></canvas>
-    </div>
-
-    <div class="history" id="history-section">
-      <div class="history-title">気分の記録</div>
-      <div id="history-list"></div>
+      <div style="text-align:center;margin-top:12px;">
+        <button class="btn" onclick="toggleHistoryList(this)" style="padding:8px 20px;font-size:14px;border-radius:20px;width:auto;">📋 気分の記録を見る</button>
+      </div>
+      <div id="history-list" style="display:none;margin-top:12px;"></div>
     </div>
   </div>
 
@@ -365,18 +364,29 @@ function saveEntry(entries) {
 function loadHistory() {
   let h = JSON.parse(localStorage.getItem('gj_history') || '[]');
   if(!h.length) return;
-  document.getElementById('history-section').style.display = 'block';
-  document.getElementById('history-list').innerHTML = h.slice(0,3).map((r,i)=>`
-    <div class="history-item" onclick="openDetail(${i})">
-      <div class="history-date">${r.date} ${r.mood||''}</div>
-      ${r.entries.map(e=>`<div class="history-entry">${e}</div>`).join('')}
-      ${r.photo ? `<img class="history-photo" src="data:image/jpeg;base64,${r.photo}" alt="写真">` : ''}
-    </div>
-  `).join('');
   const moodData = h.filter(r=>r.mood);
   if(moodData.length >= 2) {
     document.getElementById('chart-section').style.display = 'block';
     requestAnimationFrame(()=>drawMoodChart(h));
+  }
+}
+
+function toggleHistoryList(btn) {
+  const list = document.getElementById('history-list');
+  const isOpen = list.style.display !== 'none';
+  if(isOpen) {
+    list.style.display = 'none';
+    btn.textContent = '📋 気分の記録を見る';
+  } else {
+    const h = JSON.parse(localStorage.getItem('gj_history') || '[]');
+    list.innerHTML = h.map((r,i)=>`
+      <div class="history-item" onclick="openDetail(${i})" style="cursor:pointer;">
+        <div class="history-date">${r.date} ${r.mood||''}</div>
+        ${r.entries.map(e=>`<div class="history-entry">${e}</div>`).join('')}
+      </div>
+    `).join('');
+    list.style.display = 'block';
+    btn.textContent = '✕ 閉じる';
   }
 }
 
