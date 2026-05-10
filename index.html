@@ -352,7 +352,7 @@ async function submit() {
         method:'POST',
         headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
         body:JSON.stringify({
-          model:'claude-sonnet-4-20250514',
+          model:'claude-sonnet-4-6',
           max_tokens:300,
           system:'あなたは温かく共感的なウェルネスコーチです。ユーザーの3つの感謝を読み、一日を労い、ポジティブな気づきを3〜4文で伝えてください。押しつけがましくなく、自然に。日本語で。',
           messages:[{role:'user',content:`今日の感謝:\n1. ${g1}\n2. ${g2}\n3. ${g3}\n気分: ${selectedMood||'未記録'}`}]
