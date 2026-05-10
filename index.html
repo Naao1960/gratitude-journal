@@ -129,6 +129,11 @@ canvas { width: 100%; }
       </div>
     </div>
 
+    <div style="margin-bottom:12px">
+      <label style="font-size:14px;color:#888;display:block;margin-bottom:6px">Anthropic API Key（AIコメントを使う場合）</label>
+      <input id="api-key-stored" type="password" placeholder="sk-ant-..." style="width:100%;padding:10px 12px;border:1px solid #e8e4de;border-radius:10px;font-size:15px;outline:none;font-family:inherit;background:#fff">
+    </div>
+
     <button class="btn primary" id="submit-btn" onclick="submit()" disabled>記録する</button>
 
     <div class="history" id="history-section">
@@ -149,10 +154,6 @@ canvas { width: 100%; }
     <div class="ai-card" id="ai-card" style="display:none">
       <div class="ai-label">AI COACH</div>
       <div class="ai-text" id="ai-text">考え中…</div>
-    </div>
-    <div style="margin-bottom:12px">
-      <label style="font-size:13px;color:#888;display:block;margin-bottom:6px">Anthropic API Key（AIコメントを使う場合）</label>
-      <input id="api-key-stored" type="password" placeholder="sk-ant-..." style="width:100%;padding:10px 12px;border:1px solid #e8e4de;border-radius:10px;font-size:14px;outline:none;font-family:inherit;background:#fff">
     </div>
     <button class="btn" onclick="reset()" style="margin-top:8px">最初に戻る</button>
   </div>
@@ -179,6 +180,12 @@ function getTodayKey() {
 }
 
 document.getElementById('today-date').textContent = getToday();
+
+const savedKey = localStorage.getItem('gj_apikey') || '';
+if(savedKey) document.getElementById('api-key-stored').value = savedKey;
+document.getElementById('api-key-stored').addEventListener('change', function(){
+  localStorage.setItem('gj_apikey', this.value.trim());
+});
 
 function updateStreak() {
   let data = JSON.parse(localStorage.getItem('gj_streak') || '{"count":0,"lastDate":""}');
@@ -359,7 +366,11 @@ async function submit() {
         })
       });
       const data = await res.json();
-      document.getElementById('ai-text').textContent = data.content?.[0]?.text || 'ありがとうございます。今日も記録できましたね。';
+      if(data.error) {
+        document.getElementById('ai-text').textContent = 'エラー: ' + data.error.message;
+      } else {
+        document.getElementById('ai-text').textContent = data.content?.[0]?.text || 'ありがとうございます。今日も記録できましたね。';
+      }
     } catch(e) {
       document.getElementById('ai-text').textContent = '今日も3つの感謝を見つけられましたね。続けることが力になります。';
     }
