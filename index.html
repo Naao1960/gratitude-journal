@@ -35,6 +35,8 @@ h1 { font-size: 28px; font-weight: 500; }
 .card { background: #fff; border: 1px solid #e8e4de; border-radius: 14px; padding: 1rem 1.25rem; transition: border-color 0.15s; }
 .card:focus-within { border-color: #b0a8e8; }
 .card-label { display: flex; align-items: center; gap: 8px; font-size: 16px; color: #888; margin-bottom: 8px; }
+.card-remove { margin-left: auto; background: none; border: none; font-size: 18px; color: #ccc; cursor: pointer; padding: 0 4px; line-height: 1; }
+.card-remove:hover { color: #999; }
 .num { width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 500; }
 .n1 { background: #EEEDFE; color: #3C3489; }
 .n2 { background: #E1F5EE; color: #085041; }
@@ -85,7 +87,7 @@ canvas { width: 100%; }
   <div id="input-view">
     <div class="header">
       <div class="date" id="today-date"></div>
-      <h1>今日の感謝を3つ</h1>
+      <h1>今日の感謝</h1>
       <div class="streak">🔥 <span id="streak-count">0日連続</span></div>
     </div>
 
@@ -188,11 +190,19 @@ function addCard() {
   cardCount++;
   const card = document.createElement('div');
   card.className = 'card';
-  card.innerHTML = `<div class="card-label"><span class="num ${numClass[cardCount-1]}">${cardCount}</span>感謝できること</div>
+  card.id = `card${cardCount}`;
+  card.innerHTML = `<div class="card-label"><span class="num ${numClass[cardCount-1]}">${cardCount}</span>感謝できること<button class="card-remove" onclick="removeCard(${cardCount})" title="削除">✕</button></div>
     <textarea id="g${cardCount}" placeholder="${placeholders[cardCount-1]}" rows="2"></textarea>`;
   document.getElementById('cards').appendChild(card);
   document.getElementById(`g${cardCount}`).addEventListener('input', checkReady);
   if(cardCount >= 3) document.getElementById('add-btn').style.display = 'none';
+  checkReady();
+}
+
+function removeCard(n) {
+  document.getElementById(`card${n}`).remove();
+  cardCount--;
+  document.getElementById('add-btn').style.display = '';
   checkReady();
 }
 
@@ -286,10 +296,10 @@ function drawMoodChart(h) {
 
 async function submit() {
   const entries = [];
-  for(let i=1;i<=cardCount;i++){
-    const v = document.getElementById('g'+i).value.trim();
+  document.querySelectorAll('#cards textarea').forEach(t=>{
+    const v = t.value.trim();
     if(v) entries.push(v);
-  }
+  });
   const g1=entries[0]||'', g2=entries[1]||'', g3=entries[2]||'';
   saveEntry(entries);
   let streak = JSON.parse(localStorage.getItem('gj_streak')||'{"count":1}').count;
