@@ -381,8 +381,7 @@ async function submit() {
     dp.style.display = 'block';
   }
 
-  const apiKey = localStorage.getItem('gj_apikey') || '';
-  if(apiKey) {
+  {
     const card = document.getElementById('ai-card');
     card.style.display='block';
     try {
@@ -394,9 +393,9 @@ async function submit() {
           ]
         : textContent;
 
-      const res = await fetch('https://api.anthropic.com/v1/messages',{
+      const res = await fetch('/.netlify/functions/chat',{
         method:'POST',
-        headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+        headers:{'Content-Type':'application/json'},
         body:JSON.stringify({
           model:'claude-sonnet-4-6',
           max_tokens:300,
