@@ -108,12 +108,14 @@ body.dark .photo-btn { background: #2a2a2a; border-color: #5a5080; color: #a09ad
 body.dark .chart-section { border-color: #3a3a3a; }
 .chart-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
 .chart-title { font-size: 15px; color: #aaa; letter-spacing: 0.5px; text-transform: uppercase; }
-.chart-tabs { display: flex; gap: 4px; }
-.chart-tab { padding: 4px 12px; border-radius: 20px; border: 1px solid #e8e4de; background: #fff; font-size: 13px; color: #888; cursor: pointer; font-family: inherit; }
-.chart-tab.active { background: #8f87d0; color: #fff; border-color: #8f87d0; }
-body.dark .chart-tab { background: #2a2a2a; border-color: #3a3a3a; color: #888; }
-body.dark .chart-tab.active { background: #8f87d0; color: #fff; border-color: #8f87d0; }
-canvas { width: 100%; }
+.chart-nav { display: flex; align-items: center; gap: 6px; }
+.chart-nav-btn { background: none; border: 1px solid #e8e4de; border-radius: 50%; width: 28px; height: 28px; cursor: pointer; color: #888; font-size: 15px; display: flex; align-items: center; justify-content: center; font-family: inherit; transition: all 0.15s; padding: 0; }
+.chart-nav-btn:hover:not(:disabled) { border-color: #8f87d0; color: #8f87d0; }
+.chart-nav-btn:disabled { opacity: 0.22; cursor: default; }
+.chart-range { font-size: 12px; color: #aaa; min-width: 88px; text-align: center; }
+body.dark .chart-nav-btn { border-color: #3a3a3a; }
+canvas { width: 100%; cursor: grab; user-select: none; }
+canvas:active { cursor: grabbing; }
 </style>
 </head>
 <body>
@@ -190,9 +192,10 @@ canvas { width: 100%; }
     <div class="chart-section" id="chart-section">
       <div class="chart-header">
         <div class="chart-title">気分の推移</div>
-        <div class="chart-tabs">
-          <button class="chart-tab active" onclick="switchChart('week',this)">週間</button>
-          <button class="chart-tab" onclick="switchChart('month',this)">月間</button>
+        <div class="chart-nav">
+          <button class="chart-nav-btn" id="chart-prev" onclick="shiftChart(1)" title="過去へ">‹</button>
+          <span class="chart-range" id="chart-range"></span>
+          <button class="chart-nav-btn" id="chart-next" onclick="shiftChart(-1)" title="最新へ">›</button>
         </div>
       </div>
       <canvas id="mood-chart" height="160"></canvas>
@@ -366,21 +369,50 @@ function loadHistory() {
   }
 }
 
-let chartMode = 'week';
-
-function switchChart(mode, btn) {
-  chartMode = mode;
-  document.querySelectorAll('.chart-tab').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
-  const h = JSON.parse(localStorage.getItem('gj_history') || '[]');
-  drawMoodChart(h);
-}
+const CHART_WINDOW = 10;
+let chartOffset = 0;
+let chartAllData = [];
+let chartDragStartX = null;
+let chartDragStartOffset = 0;
 
 function drawMoodChart(h) {
   const moodScore = {'😔':1,'😐':2,'🙂':3,'😊':4,'😄':5};
-  const days = chartMode === 'week' ? 7 : 30;
-  const data = h.slice(0, days).reverse().filter(r=>r.mood && moodScore[r.mood]);
+  chartAllData = h.filter(r => r.mood && moodScore[r.mood]);
+  chartOffset = 0;
+  renderChart();
+}
+
+function shiftChart(delta) {
+  const maxOffset = Math.max(0, chartAllData.length - CHART_WINDOW);
+  chartOffset = Math.max(0, Math.min(chartOffset + delta, maxOffset));
+  renderChart();
+}
+
+function renderChart() {
+  const moodScore = {'😔':1,'😐':2,'🙂':3,'😊':4,'😄':5};
+  const total = chartAllData.length;
+  if(total < 2) return;
+
+  const maxOffset = Math.max(0, total - CHART_WINDOW);
+  chartOffset = Math.max(0, Math.min(chartOffset, maxOffset));
+
+  // newest-first → slice → reverse for left-to-right display
+  const sliced = chartAllData.slice(chartOffset, chartOffset + CHART_WINDOW).reverse();
+  const data = sliced.filter(r => moodScore[r.mood]);
   if(data.length < 2) return;
+
+  const prevBtn = document.getElementById('chart-prev');
+  const nextBtn = document.getElementById('chart-next');
+  if(prevBtn) prevBtn.disabled = chartOffset >= maxOffset;
+  if(nextBtn) nextBtn.disabled = chartOffset <= 0;
+
+  const rangeEl = document.getElementById('chart-range');
+  if(rangeEl && data.length > 0) {
+    const from = data[0].date.slice(5,10);
+    const to = data[data.length-1].date.slice(5,10);
+    rangeEl.textContent = from === to ? from : from + '〜' + to;
+  }
+
   document.getElementById('chart-section').style.display = 'block';
   const canvas = document.getElementById('mood-chart');
   canvas.width = canvas.offsetWidth || 400;
@@ -394,12 +426,9 @@ function drawMoodChart(h) {
 
   for(let i=1;i<=5;i++) {
     const y = pad.top + (H-pad.top-pad.bottom) * (1-(i-1)/4);
-    ctx.strokeStyle = gridColor;
-    ctx.lineWidth = 1;
+    ctx.strokeStyle = gridColor; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(pad.left,y); ctx.lineTo(W-pad.right,y); ctx.stroke();
-    ctx.fillStyle = textColor;
-    ctx.font = '11px sans-serif';
-    ctx.textAlign = 'right';
+    ctx.fillStyle = textColor; ctx.font = '11px sans-serif'; ctx.textAlign = 'right';
     ctx.fillText(['','😔','😐','🙂','😊','😄'][i], pad.left-4, y+4);
   }
 
@@ -410,9 +439,7 @@ function drawMoodChart(h) {
     label: r.date.slice(5,10)
   }));
 
-  ctx.strokeStyle = '#8f87d0';
-  ctx.lineWidth = 2;
-  ctx.lineJoin = 'round';
+  ctx.strokeStyle = '#8f87d0'; ctx.lineWidth = 2; ctx.lineJoin = 'round';
   ctx.beginPath();
   points.forEach((p,i)=>i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y));
   ctx.stroke();
@@ -420,14 +447,41 @@ function drawMoodChart(h) {
   points.forEach((p,i)=>{
     ctx.fillStyle = '#8f87d0';
     ctx.beginPath(); ctx.arc(p.x,p.y,5,0,Math.PI*2); ctx.fill();
-    if(i===0 || i===points.length-1 || points.length<=7) {
-      ctx.fillStyle = textColor;
-      ctx.font = '10px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText(p.label, p.x, H-pad.bottom+14);
-    }
+    ctx.fillStyle = textColor; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText(p.label, p.x, H-pad.bottom+14);
   });
 }
+
+// タッチ・マウスドラッグでスクロール
+(function() {
+  const PX_PER_DAY = 28;
+
+  function onDragStart(x) {
+    chartDragStartX = x;
+    chartDragStartOffset = chartOffset;
+  }
+  function onDragMove(x) {
+    if(chartDragStartX === null) return;
+    const dx = chartDragStartX - x;
+    const delta = Math.round(dx / PX_PER_DAY);
+    const maxOffset = Math.max(0, chartAllData.length - CHART_WINDOW);
+    chartOffset = Math.max(0, Math.min(chartDragStartOffset + delta, maxOffset));
+    renderChart();
+  }
+  function onDragEnd() { chartDragStartX = null; }
+
+  window.addEventListener('DOMContentLoaded', () => {}, false);
+  document.addEventListener('DOMContentLoaded', () => {
+    const canvas = document.getElementById('mood-chart');
+    canvas.addEventListener('touchstart', e=>{ onDragStart(e.touches[0].clientX); }, {passive:true});
+    canvas.addEventListener('touchmove',  e=>{ onDragMove(e.touches[0].clientX); },  {passive:true});
+    canvas.addEventListener('touchend',   onDragEnd, {passive:true});
+    canvas.addEventListener('mousedown',  e=>{ onDragStart(e.clientX); });
+    canvas.addEventListener('mousemove',  e=>{ onDragMove(e.clientX); });
+    canvas.addEventListener('mouseup',    onDragEnd);
+    canvas.addEventListener('mouseleave', onDragEnd);
+  });
+})();
 
 async function submit() {
   const entries = [];
