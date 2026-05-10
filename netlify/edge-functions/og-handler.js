@@ -1,18 +1,4 @@
-export default async (request, context) => {
-  const ua = request.headers.get('user-agent') || '';
-  const isCrawler =
-    ua.includes('facebookexternalhit') ||
-    ua.includes('Facebot') ||
-    ua.includes('Twitterbot') ||
-    ua.includes('LinkedInBot') ||
-    ua.includes('Slackbot') ||
-    ua.includes('Googlebot');
-
-  if (!isCrawler) {
-    return context.next();
-  }
-
-  const html = `<!DOCTYPE html>
+const OGP_HTML = `<!DOCTYPE html>
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
@@ -27,15 +13,38 @@ export default async (request, context) => {
 <meta property="og:type" content="website">
 <meta property="og:locale" content="ja_JP">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="日々是感謝 | Gratitude Journal">
-<meta name="twitter:description" content="毎日の感謝を記録して、気分の変化を可視化しよう">
 <meta name="twitter:image" content="https://kansyaapli.netlify.app/og-image.png">
+<meta http-equiv="refresh" content="0;url=https://kansyaapli.netlify.app">
 </head>
-<body></body>
+<body><script>window.location.href='https://kansyaapli.netlify.app';</script></body>
 </html>`;
 
-  return new Response(html, {
-    status: 200,
-    headers: { 'Content-Type': 'text/html; charset=utf-8' }
-  });
+export default async (request, context) => {
+  const url = new URL(request.url);
+  const ua = request.headers.get('user-agent') || '';
+
+  // /share は常にOGP HTMLを返す（クローラー・ブラウザ問わず）
+  if (url.pathname === '/share') {
+    return new Response(OGP_HTML, {
+      status: 200,
+      headers: { 'Content-Type': 'text/html; charset=utf-8' }
+    });
+  }
+
+  // / はクローラーのみOGP HTML、それ以外は通常表示
+  const isCrawler =
+    ua.includes('facebookexternalhit') ||
+    ua.includes('Facebot') ||
+    ua.includes('Twitterbot') ||
+    ua.includes('LinkedInBot') ||
+    ua.includes('Slackbot');
+
+  if (isCrawler) {
+    return new Response(OGP_HTML, {
+      status: 200,
+      headers: { 'Content-Type': 'text/html; charset=utf-8' }
+    });
+  }
+
+  return context.next();
 };

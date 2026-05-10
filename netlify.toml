@@ -1,3 +1,7 @@
 [[edge_functions]]
   path = "/"
   function = "og-handler"
+
+[[edge_functions]]
+  path = "/share"
+  function = "og-handler"
