@@ -72,6 +72,11 @@ textarea::placeholder { color: #bbb; }
 .history-date { font-size: 15px; color: #aaa; margin-bottom: 6px; }
 .history-entry { font-size: 16px; color: #444; padding: 2px 0; }
 .history-entry::before { content: "— "; color: #bbb; }
+
+.chart-section { margin-top: 2rem; border-top: 1px solid #e8e4de; padding-top: 1.5rem; display: none; }
+body.dark .chart-section { border-color: #3a3a3a; }
+.chart-title { font-size: 15px; color: #aaa; letter-spacing: 0.5px; margin-bottom: 12px; text-transform: uppercase; }
+canvas { width: 100%; }
 </style>
 </head>
 <body>
@@ -115,6 +120,11 @@ textarea::placeholder { color: #bbb; }
     <div class="history" id="history-section">
       <div class="history-title">最近の記録</div>
       <div id="history-list"></div>
+    </div>
+
+    <div class="chart-section" id="chart-section">
+      <div class="chart-title">気分の推移</div>
+      <canvas id="mood-chart" height="160"></canvas>
     </div>
   </div>
 
@@ -204,6 +214,64 @@ function loadHistory() {
       ${r.entries.map(e=>`<div class="history-entry">${e}</div>`).join('')}
     </div>
   `).join('');
+  drawMoodChart(h);
+}
+
+function drawMoodChart(h) {
+  const moodScore = {'😔':1,'😐':2,'🙂':3,'😊':4,'😄':5};
+  const data = h.slice(0,14).reverse().filter(r=>r.mood && moodScore[r.mood]);
+  if(data.length < 2) return;
+  document.getElementById('chart-section').style.display = 'block';
+  const canvas = document.getElementById('mood-chart');
+  canvas.width = canvas.offsetWidth || 400;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = 160;
+  const pad = {top:16, right:16, bottom:32, left:32};
+  ctx.clearRect(0,0,W,H);
+  const isDark = document.body.classList.contains('dark');
+  const gridColor = isDark ? '#3a3a3a' : '#e8e4de';
+  const textColor = isDark ? '#888' : '#aaa';
+  const lineColor = '#8f87d0';
+  const dotColor = '#8f87d0';
+
+  // grid
+  for(let i=1;i<=5;i++) {
+    const y = pad.top + (H-pad.top-pad.bottom) * (1-(i-1)/4);
+    ctx.strokeStyle = gridColor;
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(pad.left,y); ctx.lineTo(W-pad.right,y); ctx.stroke();
+    ctx.fillStyle = textColor;
+    ctx.font = '11px sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(['','😔','😐','🙂','😊','😄'][i], pad.left-4, y+4);
+  }
+
+  const xStep = (W-pad.left-pad.right) / (data.length-1);
+  const points = data.map((r,i)=>({
+    x: pad.left + i*xStep,
+    y: pad.top + (H-pad.top-pad.bottom) * (1-(moodScore[r.mood]-1)/4),
+    label: r.date.slice(5,10)
+  }));
+
+  // line
+  ctx.strokeStyle = lineColor;
+  ctx.lineWidth = 2;
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  points.forEach((p,i)=>i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y));
+  ctx.stroke();
+
+  // dots & labels
+  points.forEach((p,i)=>{
+    ctx.fillStyle = dotColor;
+    ctx.beginPath(); ctx.arc(p.x,p.y,5,0,Math.PI*2); ctx.fill();
+    if(i===0 || i===points.length-1 || points.length<=7) {
+      ctx.fillStyle = textColor;
+      ctx.font = '10px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(p.label, p.x, H-pad.bottom+14);
+    }
+  });
 }
 
 async function submit() {
