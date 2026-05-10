@@ -193,9 +193,9 @@ canvas:active { cursor: grabbing; }
       <div class="chart-header">
         <div class="chart-title">気分の推移</div>
         <div class="chart-nav">
-          <button class="chart-nav-btn" id="chart-prev" onclick="shiftChart(10)" title="過去へ">‹</button>
+          <button class="chart-nav-btn" id="chart-prev" onclick="shiftChart(5)" title="過去へ">‹</button>
           <span class="chart-range" id="chart-range"></span>
-          <button class="chart-nav-btn" id="chart-next" onclick="shiftChart(-10)" title="最新へ">›</button>
+          <button class="chart-nav-btn" id="chart-next" onclick="shiftChart(-5)" title="最新へ">›</button>
         </div>
       </div>
       <canvas id="mood-chart" height="160"></canvas>
@@ -390,8 +390,8 @@ function toggleHistoryList(btn) {
   }
 }
 
-const CHART_WINDOW = 10;
-let chartOffset = 0; // 今日からの日数オフセット（0=最新10日）
+const CHART_WINDOW = 5;
+let chartOffset = 0; // 今日からの日数オフセット（5日ページ単位）
 let chartAllData = [];
 let chartDataByKey = {};
 let chartDragStartX = null;
@@ -408,7 +408,9 @@ function drawMoodChart(h) {
 }
 
 function shiftChart(delta) {
-  chartOffset = Math.max(0, chartOffset + delta);
+  // ページ単位（5日）でスナップ
+  const page = Math.round(chartOffset / CHART_WINDOW);
+  chartOffset = Math.max(0, (page + (delta > 0 ? 1 : -1)) * CHART_WINDOW);
   renderChart();
 }
 
@@ -474,10 +476,10 @@ function renderChart() {
     ctx.beginPath(); ctx.moveTo(x, pad.top); ctx.lineTo(x, H - pad.bottom); ctx.stroke();
   });
 
-  // X軸ラベル（最初・最後・中間）
-  [0, 4, 9].forEach(idx => {
+  // X軸ラベル（5日すべて表示）
+  slots.forEach((key, idx) => {
     ctx.fillStyle = textColor; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
-    ctx.fillText(slots[idx].slice(5), pad.left + idx * xStep, H - pad.bottom + 14);
+    ctx.fillText(key.slice(5), pad.left + idx * xStep, H - pad.bottom + 14);
   });
 
   // 折れ線
@@ -503,44 +505,40 @@ function renderChart() {
   });
 }
 
-// タッチ・マウスドラッグ（1日単位）＋ドットクリックで詳細表示
+// スワイプ（ページ単位）＋ドットクリックで詳細表示
 (function() {
-  const PX_PER_DAY = 30;
-  const CLICK_THRESHOLD = 6; // px以内の移動はクリックとみなす
-  const DOT_HIT_RADIUS = 18; // ドットのタップ判定半径
+  const SWIPE_THRESHOLD = 40; // px以上でページ切り替え
+  const CLICK_THRESHOLD = 6;
+  const DOT_HIT_RADIUS = 18;
 
   function onDragStart(x) { chartDragStartX = x; chartDragStartOffset = chartOffset; }
 
-  function onDragMove(x) {
-    if(chartDragStartX === null) return;
-    const delta = Math.round((chartDragStartX - x) / PX_PER_DAY);
-    chartOffset = Math.max(0, chartDragStartOffset + delta);
-    renderChart();
-  }
-
   function onDragEnd(endX, canvasEl) {
     if(chartDragStartX === null) return;
-    const moved = Math.abs(endX - chartDragStartX);
-    if(moved < CLICK_THRESHOLD && canvasEl) {
-      // クリックとみなしてドット検索
+    const moved = endX - chartDragStartX;
+
+    if(Math.abs(moved) < CLICK_THRESHOLD && canvasEl) {
+      // クリック：ドット近傍を判定して詳細表示
       const rect = canvasEl.getBoundingClientRect();
-      const scaleX = canvasEl.width / rect.width;
-      const cx = (endX - rect.left) * scaleX;
-      // canvasのY座標はeventから別途取得できないためX軸のみで近傍判定
+      const cx = (endX - rect.left) * (canvasEl.width / rect.width);
       const hit = chartDotPositions.find(d => Math.abs(d.x - cx) < DOT_HIT_RADIUS);
       if(hit) openDetailByKey(hit.key);
+    } else if(moved < -SWIPE_THRESHOLD) {
+      // 左スワイプ → 過去ページへ
+      shiftChart(5);
+    } else if(moved > SWIPE_THRESHOLD) {
+      // 右スワイプ → 新しいページへ
+      shiftChart(-5);
     }
     chartDragStartX = null;
   }
 
   const canvas = document.getElementById('mood-chart');
   canvas.addEventListener('touchstart', e => onDragStart(e.touches[0].clientX), {passive:true});
-  canvas.addEventListener('touchmove',  e => onDragMove(e.touches[0].clientX),  {passive:true});
   canvas.addEventListener('touchend',   e => onDragEnd(e.changedTouches[0].clientX, canvas), {passive:true});
   canvas.addEventListener('mousedown',  e => onDragStart(e.clientX));
-  canvas.addEventListener('mousemove',  e => onDragMove(e.clientX));
   canvas.addEventListener('mouseup',    e => onDragEnd(e.clientX, canvas));
-  canvas.addEventListener('mouseleave', e => onDragEnd(e.clientX, canvas));
+  canvas.addEventListener('mouseleave', e => { chartDragStartX = null; });
 })();
 
 async function submit() {
