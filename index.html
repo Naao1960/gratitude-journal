@@ -37,6 +37,14 @@ h1 { font-size: 28px; font-weight: 500; }
 .card-label { display: flex; align-items: center; gap: 8px; font-size: 16px; color: #888; margin-bottom: 8px; }
 .card-remove { margin-left: auto; background: none; border: none; font-size: 18px; color: #ccc; cursor: pointer; padding: 0 4px; line-height: 1; }
 .card-remove:hover { color: #999; }
+
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 100; align-items: center; justify-content: center; }
+.modal-overlay.show { display: flex; }
+.modal { background: #fff; border-radius: 16px; padding: 2rem 1.5rem; width: 300px; text-align: center; box-shadow: 0 8px 32px rgba(0,0,0,0.15); }
+body.dark .modal { background: #2a2a2a; color: #f0ece6; }
+.modal-msg { font-size: 17px; margin-bottom: 1.5rem; line-height: 1.6; }
+.modal-btns { display: flex; gap: 10px; }
+.modal-btns .btn { flex: 1; padding: 12px; font-size: 16px; }
 .num { width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 500; }
 .n1 { background: #EEEDFE; color: #3C3489; }
 .n2 { background: #E1F5EE; color: #085041; }
@@ -83,6 +91,17 @@ canvas { width: 100%; }
 </head>
 <body>
 <button class="theme-toggle" onclick="toggleTheme()" id="theme-btn">🌙 ダーク</button>
+
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal">
+    <div class="modal-msg">このカードを削除してよいですか？</div>
+    <div class="modal-btns">
+      <button class="btn" onclick="closeModal()">キャンセル</button>
+      <button class="btn primary" onclick="confirmRemove()">削除</button>
+    </div>
+  </div>
+</div>
+
 <div class="app">
   <div id="input-view">
     <div class="header">
@@ -199,12 +218,27 @@ function addCard() {
   checkReady();
 }
 
+let removeTarget = null;
+
 function removeCard(n) {
-  if(!confirm('このカードを削除してよいですか？')) return;
-  document.getElementById(`card${n}`).remove();
-  cardCount--;
-  document.getElementById('add-btn').style.display = '';
-  checkReady();
+  removeTarget = n;
+  document.getElementById('modal-overlay').classList.add('show');
+}
+
+function confirmRemove() {
+  if(removeTarget) {
+    document.getElementById(`card${removeTarget}`).remove();
+    cardCount--;
+    document.getElementById('add-btn').style.display = '';
+    checkReady();
+    removeTarget = null;
+  }
+  closeModal();
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('show');
+  removeTarget = null;
 }
 
 function checkReady() {
