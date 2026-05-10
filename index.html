@@ -90,6 +90,9 @@ textarea::placeholder { color: #bbb; }
 .history-date { font-size: 15px; color: #aaa; margin-bottom: 6px; }
 .history-entry { font-size: 16px; color: #444; padding: 2px 0; }
 .history-entry::before { content: "— "; color: #bbb; }
+body.dark .history-date { color: #aaa; }
+body.dark .history-entry { color: #f0ece6; }
+body.dark .history-entry::before { color: #888; }
 .history-photo { width: 100%; border-radius: 8px; margin-top: 8px; object-fit: cover; max-height: 160px; }
 
 .photo-section { margin-bottom: 1.5rem; }
@@ -102,7 +105,13 @@ body.dark .photo-btn { background: #2a2a2a; border-color: #5a5080; color: #a09ad
 
 .chart-section { margin-top: 2rem; border-top: 1px solid #e8e4de; padding-top: 1.5rem; display: none; }
 body.dark .chart-section { border-color: #3a3a3a; }
-.chart-title { font-size: 15px; color: #aaa; letter-spacing: 0.5px; margin-bottom: 12px; text-transform: uppercase; }
+.chart-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.chart-title { font-size: 15px; color: #aaa; letter-spacing: 0.5px; text-transform: uppercase; }
+.chart-tabs { display: flex; gap: 4px; }
+.chart-tab { padding: 4px 12px; border-radius: 20px; border: 1px solid #e8e4de; background: #fff; font-size: 13px; color: #888; cursor: pointer; font-family: inherit; }
+.chart-tab.active { background: #8f87d0; color: #fff; border-color: #8f87d0; }
+body.dark .chart-tab { background: #2a2a2a; border-color: #3a3a3a; color: #888; }
+body.dark .chart-tab.active { background: #8f87d0; color: #fff; border-color: #8f87d0; }
 canvas { width: 100%; }
 </style>
 </head>
@@ -167,14 +176,20 @@ canvas { width: 100%; }
       </button>
     </div>
 
+    <div class="chart-section" id="chart-section">
+      <div class="chart-header">
+        <div class="chart-title">気分の推移</div>
+        <div class="chart-tabs">
+          <button class="chart-tab active" onclick="switchChart('week',this)">週間</button>
+          <button class="chart-tab" onclick="switchChart('month',this)">月間</button>
+        </div>
+      </div>
+      <canvas id="mood-chart" height="160"></canvas>
+    </div>
+
     <div class="history" id="history-section">
       <div class="history-title">最近の記録</div>
       <div id="history-list"></div>
-    </div>
-
-    <div class="chart-section" id="chart-section">
-      <div class="chart-title">気分の推移</div>
-      <canvas id="mood-chart" height="160"></canvas>
     </div>
   </div>
 
@@ -313,9 +328,20 @@ function loadHistory() {
   drawMoodChart(h);
 }
 
+let chartMode = 'week';
+
+function switchChart(mode, btn) {
+  chartMode = mode;
+  document.querySelectorAll('.chart-tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  const h = JSON.parse(localStorage.getItem('gj_history') || '[]');
+  drawMoodChart(h);
+}
+
 function drawMoodChart(h) {
   const moodScore = {'😔':1,'😐':2,'🙂':3,'😊':4,'😄':5};
-  const data = h.slice(0,14).reverse().filter(r=>r.mood && moodScore[r.mood]);
+  const days = chartMode === 'week' ? 7 : 30;
+  const data = h.slice(0, days).reverse().filter(r=>r.mood && moodScore[r.mood]);
   if(data.length < 2) return;
   document.getElementById('chart-section').style.display = 'block';
   const canvas = document.getElementById('mood-chart');
@@ -327,10 +353,7 @@ function drawMoodChart(h) {
   const isDark = document.body.classList.contains('dark');
   const gridColor = isDark ? '#3a3a3a' : '#e8e4de';
   const textColor = isDark ? '#888' : '#aaa';
-  const lineColor = '#8f87d0';
-  const dotColor = '#8f87d0';
 
-  // grid
   for(let i=1;i<=5;i++) {
     const y = pad.top + (H-pad.top-pad.bottom) * (1-(i-1)/4);
     ctx.strokeStyle = gridColor;
@@ -349,17 +372,15 @@ function drawMoodChart(h) {
     label: r.date.slice(5,10)
   }));
 
-  // line
-  ctx.strokeStyle = lineColor;
+  ctx.strokeStyle = '#8f87d0';
   ctx.lineWidth = 2;
   ctx.lineJoin = 'round';
   ctx.beginPath();
   points.forEach((p,i)=>i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y));
   ctx.stroke();
 
-  // dots & labels
   points.forEach((p,i)=>{
-    ctx.fillStyle = dotColor;
+    ctx.fillStyle = '#8f87d0';
     ctx.beginPath(); ctx.arc(p.x,p.y,5,0,Math.PI*2); ctx.fill();
     if(i===0 || i===points.length-1 || points.length<=7) {
       ctx.fillStyle = textColor;
