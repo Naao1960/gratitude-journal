@@ -38,6 +38,10 @@ h1 { font-size: 28px; font-weight: 500; }
 .card-label { display: flex; align-items: center; gap: 8px; font-size: 16px; color: #888; margin-bottom: 8px; }
 .card-remove { margin-left: auto; background: none; border: none; font-size: 18px; color: #ccc; cursor: pointer; padding: 0 4px; line-height: 1; }
 .card-remove:hover { color: #999; }
+.card-footer { display: flex; align-items: center; justify-content: flex-end; margin-top: 6px; }
+.camera-btn { background: none; border: none; cursor: pointer; padding: 4px; opacity: 0.4; transition: opacity 0.15s; }
+.camera-btn:hover { opacity: 0.8; }
+.camera-btn svg { display: block; }
 
 .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 100; align-items: center; justify-content: center; }
 .modal-overlay.show { display: flex; }
@@ -123,10 +127,24 @@ canvas { width: 100%; }
     <div class="cards" id="cards">
       <div class="card">
         <div class="card-label"><span class="num n1">1</span>感謝できること</div>
-        <textarea id="g1" placeholder="今日、感謝したいことは…" rows="2"></textarea>
+        <textarea id="g1" placeholder="今日、感謝したいことは…" rows="3"></textarea>
+        <div class="card-footer">
+          <input type="file" id="photo-input" accept="image/*" style="display:none" onchange="handlePhoto(this)">
+          <button class="camera-btn" onclick="document.getElementById('photo-input').click()" title="写真を追加">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="1" y="5" width="22" height="16" rx="3" fill="#8f87d0"/>
+              <circle cx="12" cy="13" r="4" fill="white"/>
+              <circle cx="12" cy="13" r="2.2" fill="#8f87d0"/>
+              <rect x="7" y="3" width="4" height="3" rx="1" fill="#8f87d0"/>
+            </svg>
+          </button>
+        </div>
+        <div class="photo-preview" id="photo-preview">
+          <img id="photo-thumb" src="" alt="プレビュー">
+          <button class="photo-remove" onclick="removePhoto()">✕</button>
+        </div>
       </div>
     </div>
-    <button class="btn" id="add-btn" onclick="addCard()" style="margin-bottom:1rem">＋ もう一つ追加</button>
 
     <div class="mood-section">
       <div class="mood-label">今の気分は？</div>
@@ -136,15 +154,6 @@ canvas { width: 100%; }
         <button class="mood-btn" data-mood="🙂" onclick="selectMood(this)">🙂<span class="mood-txt">まあまあ</span></button>
         <button class="mood-btn" data-mood="😊" onclick="selectMood(this)">😊<span class="mood-txt">良い</span></button>
         <button class="mood-btn" data-mood="😄" onclick="selectMood(this)">😄<span class="mood-txt">最高</span></button>
-      </div>
-    </div>
-
-    <div class="photo-section">
-      <input type="file" id="photo-input" accept="image/*" style="display:none" onchange="handlePhoto(this)">
-      <button class="photo-btn" onclick="document.getElementById('photo-input').click()">📷 写真を追加（任意）</button>
-      <div class="photo-preview" id="photo-preview">
-        <img id="photo-thumb" src="" alt="プレビュー">
-        <button class="photo-remove" onclick="removePhoto()">✕</button>
       </div>
     </div>
 
@@ -257,36 +266,10 @@ loadHistory();
 
 document.getElementById('g1').addEventListener('input', checkReady);
 
-let cardCount = 1;
-const placeholders = ['今日、感謝したいことは…','小さなことでも大丈夫…','誰かへの感謝でも…'];
-const numClass = ['n1','n2','n3'];
-
-function addCard() {
-  if(cardCount >= 3) return;
-  cardCount++;
-  const card = document.createElement('div');
-  card.className = 'card';
-  card.id = `card${cardCount}`;
-  card.innerHTML = `<div class="card-label"><span class="num ${numClass[cardCount-1]}">${cardCount}</span>感謝できること<button class="card-remove" onclick="removeCard(${cardCount})" title="削除">✕</button></div>
-    <textarea id="g${cardCount}" placeholder="${placeholders[cardCount-1]}" rows="2"></textarea>`;
-  document.getElementById('cards').appendChild(card);
-  document.getElementById(`g${cardCount}`).addEventListener('input', checkReady);
-  if(cardCount >= 3) document.getElementById('add-btn').style.display = 'none';
-  checkReady();
-}
-
 let removeTarget = null;
-
-function removeCard(n) {
-  removeTarget = n;
-  document.getElementById('modal-overlay').classList.add('show');
-}
 
 function confirmRemove() {
   if(removeTarget) {
-    document.getElementById(`card${removeTarget}`).remove();
-    cardCount--;
-    document.getElementById('add-btn').style.display = '';
     checkReady();
     removeTarget = null;
   }
@@ -446,14 +429,7 @@ function reset() {
   document.getElementById('done-view').style.display='none';
   document.getElementById('done-photo').style.display='none';
   document.getElementById('input-view').style.display='block';
-  const cards = document.getElementById('cards');
-  cards.innerHTML = `<div class="card">
-    <div class="card-label"><span class="num n1">1</span>感謝できること</div>
-    <textarea id="g1" placeholder="今日、感謝したいことは…" rows="2"></textarea>
-  </div>`;
-  document.getElementById('g1').addEventListener('input', checkReady);
-  cardCount = 1;
-  document.getElementById('add-btn').style.display = '';
+  document.getElementById('g1').value='';
   document.querySelectorAll('.mood-btn').forEach(b=>b.classList.remove('selected'));
   selectedMood=null;
   photoBase64=null;
