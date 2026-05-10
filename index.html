@@ -282,14 +282,16 @@ function closeModal() {
 }
 
 function checkReady() {
-  const ok = document.getElementById('g1').value.trim() !== '';
-  document.getElementById('submit-btn').disabled = !ok;
+  const hasText = document.getElementById('g1').value.trim() !== '';
+  const hasMood = selectedMood !== null;
+  document.getElementById('submit-btn').disabled = !(hasText && hasMood);
 }
 
 function selectMood(btn) {
   document.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('selected'));
   btn.classList.add('selected');
   selectedMood = btn.dataset.mood;
+  checkReady();
 }
 
 function saveEntry(entries) {
