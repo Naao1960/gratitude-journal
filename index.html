@@ -193,9 +193,9 @@ canvas:active { cursor: grabbing; }
       <div class="chart-header">
         <div class="chart-title">気分の推移</div>
         <div class="chart-nav">
-          <button class="chart-nav-btn" id="chart-prev" onclick="shiftChart(1)" title="過去へ">‹</button>
+          <button class="chart-nav-btn" id="chart-prev" onclick="shiftChart(10)" title="過去へ">‹</button>
           <span class="chart-range" id="chart-range"></span>
-          <button class="chart-nav-btn" id="chart-next" onclick="shiftChart(-1)" title="最新へ">›</button>
+          <button class="chart-nav-btn" id="chart-next" onclick="shiftChart(-10)" title="最新へ">›</button>
         </div>
       </div>
       <canvas id="mood-chart" height="160"></canvas>
@@ -370,36 +370,43 @@ function loadHistory() {
 }
 
 const CHART_WINDOW = 10;
-let chartOffset = 0;
+let chartOffset = 0; // 今日からの日数オフセット（0=最新10日）
 let chartAllData = [];
+let chartDataByKey = {};
 let chartDragStartX = null;
 let chartDragStartOffset = 0;
 
 function drawMoodChart(h) {
   const moodScore = {'😔':1,'😐':2,'🙂':3,'😊':4,'😄':5};
-  chartAllData = h.filter(r => r.mood && moodScore[r.mood]);
+  chartAllData = h.filter(r => r.mood && moodScore[r.mood] && r.key);
+  chartDataByKey = {};
+  chartAllData.forEach(r => { chartDataByKey[r.key] = r; });
   chartOffset = 0;
   renderChart();
 }
 
 function shiftChart(delta) {
-  const maxOffset = Math.max(0, chartAllData.length - CHART_WINDOW);
-  chartOffset = Math.max(0, Math.min(chartOffset + delta, maxOffset));
+  chartOffset = Math.max(0, chartOffset + delta);
   renderChart();
 }
 
 function renderChart() {
   const moodScore = {'😔':1,'😐':2,'🙂':3,'😊':4,'😄':5};
-  const total = chartAllData.length;
-  if(total < 2) return;
+  if(chartAllData.length < 1) return;
 
-  const maxOffset = Math.max(0, total - CHART_WINDOW);
-  chartOffset = Math.max(0, Math.min(chartOffset, maxOffset));
+  // 今日を起点に10日分のカレンダースロットを生成
+  const today = new Date();
+  const oldestKey = chartAllData[chartAllData.length - 1].key;
+  const daysSinceOldest = Math.floor((today - new Date(oldestKey)) / 86400000);
+  const maxOffset = Math.max(0, daysSinceOldest - CHART_WINDOW + 1);
+  chartOffset = Math.min(chartOffset, maxOffset);
 
-  // newest-first → slice → reverse for left-to-right display
-  const sliced = chartAllData.slice(chartOffset, chartOffset + CHART_WINDOW).reverse();
-  const data = sliced.filter(r => moodScore[r.mood]);
-  if(data.length < 2) return;
+  const slots = [];
+  for(let i = CHART_WINDOW - 1; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i - chartOffset);
+    slots.push(d.toISOString().split('T')[0]);
+  }
 
   const prevBtn = document.getElementById('chart-prev');
   const nextBtn = document.getElementById('chart-next');
@@ -407,11 +414,15 @@ function renderChart() {
   if(nextBtn) nextBtn.disabled = chartOffset <= 0;
 
   const rangeEl = document.getElementById('chart-range');
-  if(rangeEl && data.length > 0) {
-    const from = data[0].date.slice(5,10);
-    const to = data[data.length-1].date.slice(5,10);
-    rangeEl.textContent = from === to ? from : from + '〜' + to;
-  }
+  if(rangeEl) rangeEl.textContent = slots[0].slice(5) + '〜' + slots[CHART_WINDOW-1].slice(5);
+
+  // 各スロットにデータを対応付け
+  const plotPoints = slots.map((key, i) => {
+    const r = chartDataByKey[key];
+    return { i, label: key.slice(5), score: r ? moodScore[r.mood] : null };
+  });
+  const dataPoints = plotPoints.filter(p => p.score != null);
+  if(dataPoints.length < 1) return;
 
   document.getElementById('chart-section').style.display = 'block';
   const canvas = document.getElementById('mood-chart');
@@ -419,68 +430,74 @@ function renderChart() {
   const ctx = canvas.getContext('2d');
   const W = canvas.width, H = 160;
   const pad = {top:16, right:16, bottom:32, left:32};
-  ctx.clearRect(0,0,W,H);
+  ctx.clearRect(0, 0, W, H);
   const isDark = document.body.classList.contains('dark');
   const gridColor = isDark ? '#3a3a3a' : '#e8e4de';
   const textColor = isDark ? '#888' : '#aaa';
+  const xStep = (W - pad.left - pad.right) / (CHART_WINDOW - 1);
 
-  for(let i=1;i<=5;i++) {
-    const y = pad.top + (H-pad.top-pad.bottom) * (1-(i-1)/4);
+  // 横グリッド（気分レベル）
+  for(let i = 1; i <= 5; i++) {
+    const y = pad.top + (H - pad.top - pad.bottom) * (1 - (i-1)/4);
     ctx.strokeStyle = gridColor; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(pad.left,y); ctx.lineTo(W-pad.right,y); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(W - pad.right, y); ctx.stroke();
     ctx.fillStyle = textColor; ctx.font = '11px sans-serif'; ctx.textAlign = 'right';
-    ctx.fillText(['','😔','😐','🙂','😊','😄'][i], pad.left-4, y+4);
+    ctx.fillText(['','😔','😐','🙂','😊','😄'][i], pad.left - 4, y + 4);
   }
 
-  const xStep = (W-pad.left-pad.right) / (data.length-1);
-  const points = data.map((r,i)=>({
-    x: pad.left + i*xStep,
-    y: pad.top + (H-pad.top-pad.bottom) * (1-(moodScore[r.mood]-1)/4),
-    label: r.date.slice(5,10)
-  }));
+  // 縦グリッド（各日）
+  slots.forEach((_, idx) => {
+    const x = pad.left + idx * xStep;
+    ctx.strokeStyle = gridColor; ctx.lineWidth = 0.5;
+    ctx.beginPath(); ctx.moveTo(x, pad.top); ctx.lineTo(x, H - pad.bottom); ctx.stroke();
+  });
 
-  ctx.strokeStyle = '#8f87d0'; ctx.lineWidth = 2; ctx.lineJoin = 'round';
-  ctx.beginPath();
-  points.forEach((p,i)=>i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y));
-  ctx.stroke();
-
-  points.forEach((p,i)=>{
-    ctx.fillStyle = '#8f87d0';
-    ctx.beginPath(); ctx.arc(p.x,p.y,5,0,Math.PI*2); ctx.fill();
+  // X軸ラベル（最初・最後・中間）
+  [0, 4, 9].forEach(idx => {
     ctx.fillStyle = textColor; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
-    ctx.fillText(p.label, p.x, H-pad.bottom+14);
+    ctx.fillText(slots[idx].slice(5), pad.left + idx * xStep, H - pad.bottom + 14);
+  });
+
+  // 折れ線
+  if(dataPoints.length >= 2) {
+    ctx.strokeStyle = '#8f87d0'; ctx.lineWidth = 2; ctx.lineJoin = 'round';
+    ctx.beginPath();
+    dataPoints.forEach((p, idx) => {
+      const x = pad.left + p.i * xStep;
+      const y = pad.top + (H - pad.top - pad.bottom) * (1 - (p.score - 1) / 4);
+      idx === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+  }
+
+  // ドット
+  dataPoints.forEach(p => {
+    const x = pad.left + p.i * xStep;
+    const y = pad.top + (H - pad.top - pad.bottom) * (1 - (p.score - 1) / 4);
+    ctx.fillStyle = '#8f87d0';
+    ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI*2); ctx.fill();
   });
 }
 
-// タッチ・マウスドラッグでスクロール
+// タッチ・マウスドラッグ（1日単位）
 (function() {
-  const PX_PER_DAY = 28;
-
-  function onDragStart(x) {
-    chartDragStartX = x;
-    chartDragStartOffset = chartOffset;
-  }
+  const PX_PER_DAY = 30;
+  function onDragStart(x) { chartDragStartX = x; chartDragStartOffset = chartOffset; }
   function onDragMove(x) {
     if(chartDragStartX === null) return;
-    const dx = chartDragStartX - x;
-    const delta = Math.round(dx / PX_PER_DAY);
-    const maxOffset = Math.max(0, chartAllData.length - CHART_WINDOW);
-    chartOffset = Math.max(0, Math.min(chartDragStartOffset + delta, maxOffset));
+    const delta = Math.round((chartDragStartX - x) / PX_PER_DAY);
+    chartOffset = Math.max(0, chartDragStartOffset + delta);
     renderChart();
   }
   function onDragEnd() { chartDragStartX = null; }
-
-  window.addEventListener('DOMContentLoaded', () => {}, false);
-  document.addEventListener('DOMContentLoaded', () => {
-    const canvas = document.getElementById('mood-chart');
-    canvas.addEventListener('touchstart', e=>{ onDragStart(e.touches[0].clientX); }, {passive:true});
-    canvas.addEventListener('touchmove',  e=>{ onDragMove(e.touches[0].clientX); },  {passive:true});
-    canvas.addEventListener('touchend',   onDragEnd, {passive:true});
-    canvas.addEventListener('mousedown',  e=>{ onDragStart(e.clientX); });
-    canvas.addEventListener('mousemove',  e=>{ onDragMove(e.clientX); });
-    canvas.addEventListener('mouseup',    onDragEnd);
-    canvas.addEventListener('mouseleave', onDragEnd);
-  });
+  const canvas = document.getElementById('mood-chart');
+  canvas.addEventListener('touchstart', e => onDragStart(e.touches[0].clientX), {passive:true});
+  canvas.addEventListener('touchmove',  e => onDragMove(e.touches[0].clientX),  {passive:true});
+  canvas.addEventListener('touchend',   onDragEnd, {passive:true});
+  canvas.addEventListener('mousedown',  e => onDragStart(e.clientX));
+  canvas.addEventListener('mousemove',  e => onDragMove(e.clientX));
+  canvas.addEventListener('mouseup',    onDragEnd);
+  canvas.addEventListener('mouseleave', onDragEnd);
 })();
 
 async function submit() {
