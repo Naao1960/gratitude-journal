@@ -157,11 +157,6 @@ canvas { width: 100%; }
       </div>
     </div>
 
-    <div style="margin-bottom:12px">
-      <label style="font-size:14px;color:#888;display:block;margin-bottom:6px">Anthropic API Key（AIコメントを使う場合）</label>
-      <input id="api-key-stored" type="password" placeholder="sk-ant-..." style="width:100%;padding:10px 12px;border:1px solid #e8e4de;border-radius:10px;font-size:15px;outline:none;font-family:inherit;background:#fff">
-    </div>
-
     <button class="btn primary" id="submit-btn" onclick="submit()" disabled>記録する</button>
 
     <div class="history" id="history-section">
@@ -240,11 +235,6 @@ function getTodayKey() {
 
 document.getElementById('today-date').textContent = getToday();
 
-const savedKey = localStorage.getItem('gj_apikey') || '';
-if(savedKey) document.getElementById('api-key-stored').value = savedKey;
-document.getElementById('api-key-stored').addEventListener('change', function(){
-  localStorage.setItem('gj_apikey', this.value.trim());
-});
 
 function updateStreak() {
   let data = JSON.parse(localStorage.getItem('gj_streak') || '{"count":0,"lastDate":""}');
@@ -391,9 +381,8 @@ async function submit() {
     dp.style.display = 'block';
   }
 
-  const apiKey = document.getElementById('api-key-stored').value.trim() || localStorage.getItem('gj_apikey') || '';
+  const apiKey = localStorage.getItem('gj_apikey') || '';
   if(apiKey) {
-    localStorage.setItem('gj_apikey', apiKey);
     const card = document.getElementById('ai-card');
     card.style.display='block';
     try {
