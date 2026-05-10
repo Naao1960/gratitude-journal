@@ -200,6 +200,7 @@ function addCard() {
 }
 
 function removeCard(n) {
+  if(!confirm('このカードを削除してよいですか？')) return;
   document.getElementById(`card${n}`).remove();
   cardCount--;
   document.getElementById('add-btn').style.display = '';
