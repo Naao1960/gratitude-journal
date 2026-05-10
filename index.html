@@ -89,20 +89,13 @@ canvas { width: 100%; }
       <div class="streak">🔥 <span id="streak-count">0日連続</span></div>
     </div>
 
-    <div class="cards">
+    <div class="cards" id="cards">
       <div class="card">
         <div class="card-label"><span class="num n1">1</span>感謝できること</div>
         <textarea id="g1" placeholder="今日、感謝したいことは…" rows="2"></textarea>
       </div>
-      <div class="card">
-        <div class="card-label"><span class="num n2">2</span>感謝できること</div>
-        <textarea id="g2" placeholder="小さなことでも大丈夫…" rows="2"></textarea>
-      </div>
-      <div class="card">
-        <div class="card-label"><span class="num n3">3</span>感謝できること</div>
-        <textarea id="g3" placeholder="誰かへの感謝でも…" rows="2"></textarea>
-      </div>
     </div>
+    <button class="btn" id="add-btn" onclick="addCard()" style="margin-bottom:1rem">＋ もう一つ追加</button>
 
     <div class="mood-section">
       <div class="mood-label">今の気分は？</div>
@@ -184,10 +177,27 @@ function updateStreak() {
 updateStreak();
 loadHistory();
 
-['g1','g2','g3'].forEach(id => document.getElementById(id).addEventListener('input', checkReady));
+document.getElementById('g1').addEventListener('input', checkReady);
+
+let cardCount = 1;
+const placeholders = ['今日、感謝したいことは…','小さなことでも大丈夫…','誰かへの感謝でも…'];
+const numClass = ['n1','n2','n3'];
+
+function addCard() {
+  if(cardCount >= 3) return;
+  cardCount++;
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.innerHTML = `<div class="card-label"><span class="num ${numClass[cardCount-1]}">${cardCount}</span>感謝できること</div>
+    <textarea id="g${cardCount}" placeholder="${placeholders[cardCount-1]}" rows="2"></textarea>`;
+  document.getElementById('cards').appendChild(card);
+  document.getElementById(`g${cardCount}`).addEventListener('input', checkReady);
+  if(cardCount >= 3) document.getElementById('add-btn').style.display = 'none';
+  checkReady();
+}
 
 function checkReady() {
-  const ok = ['g1','g2','g3'].every(id => document.getElementById(id).value.trim());
+  const ok = document.getElementById('g1').value.trim() !== '';
   document.getElementById('submit-btn').disabled = !ok;
 }
 
@@ -275,10 +285,13 @@ function drawMoodChart(h) {
 }
 
 async function submit() {
-  const g1=document.getElementById('g1').value.trim();
-  const g2=document.getElementById('g2').value.trim();
-  const g3=document.getElementById('g3').value.trim();
-  saveEntry([g1,g2,g3]);
+  const entries = [];
+  for(let i=1;i<=cardCount;i++){
+    const v = document.getElementById('g'+i).value.trim();
+    if(v) entries.push(v);
+  }
+  const g1=entries[0]||'', g2=entries[1]||'', g3=entries[2]||'';
+  saveEntry(entries);
   let streak = JSON.parse(localStorage.getItem('gj_streak')||'{"count":1}').count;
   document.getElementById('input-view').style.display='none';
   document.getElementById('done-view').style.display='block';
@@ -311,7 +324,14 @@ async function submit() {
 function reset() {
   document.getElementById('done-view').style.display='none';
   document.getElementById('input-view').style.display='block';
-  ['g1','g2','g3'].forEach(id => document.getElementById(id).value='');
+  const cards = document.getElementById('cards');
+  cards.innerHTML = `<div class="card">
+    <div class="card-label"><span class="num n1">1</span>感謝できること</div>
+    <textarea id="g1" placeholder="今日、感謝したいことは…" rows="2"></textarea>
+  </div>`;
+  document.getElementById('g1').addEventListener('input', checkReady);
+  cardCount = 1;
+  document.getElementById('add-btn').style.display = '';
   document.querySelectorAll('.mood-btn').forEach(b=>b.classList.remove('selected'));
   selectedMood=null;
   document.getElementById('submit-btn').disabled=true;
