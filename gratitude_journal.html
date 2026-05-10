@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gratitude Journal</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f9f7f4; color: #1a1a1a; min-height: 100vh; }
+
+.app { max-width: 480px; margin: 0 auto; padding: 2rem 1rem; }
+
+.header { text-align: center; margin-bottom: 2rem; }
+.date { font-size: 13px; color: #888; margin-bottom: 4px; }
+h1 { font-size: 22px; font-weight: 500; }
+.streak { display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; background: #fff; border: 1px solid #e8e4de; border-radius: 20px; padding: 5px 16px; font-size: 13px; color: #666; }
+
+.cards { display: flex; flex-direction: column; gap: 12px; margin-bottom: 1.5rem; }
+.card { background: #fff; border: 1px solid #e8e4de; border-radius: 14px; padding: 1rem 1.25rem; transition: border-color 0.15s; }
+.card:focus-within { border-color: #b0a8e8; }
+.card-label { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #888; margin-bottom: 8px; }
+.num { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 500; }
+.n1 { background: #EEEDFE; color: #3C3489; }
+.n2 { background: #E1F5EE; color: #085041; }
+.n3 { background: #FAECE7; color: #712B13; }
+textarea { width: 100%; border: none; outline: none; background: transparent; font-family: inherit; font-size: 15px; color: #1a1a1a; resize: none; line-height: 1.6; min-height: 52px; }
+textarea::placeholder { color: #bbb; }
+
+.mood-section { margin-bottom: 1.5rem; }
+.mood-label { font-size: 13px; color: #888; margin-bottom: 10px; }
+.moods { display: flex; gap: 8px; }
+.mood-btn { flex: 1; padding: 10px 4px; border: 1px solid #e8e4de; border-radius: 10px; background: #fff; font-size: 20px; cursor: pointer; text-align: center; transition: all 0.15s; }
+.mood-btn:hover { border-color: #c0b8e0; background: #f5f3ff; }
+.mood-btn.selected { border-color: #8f87d0; background: #f0eeff; }
+.mood-txt { display: block; font-size: 10px; color: #888; margin-top: 3px; }
+
+.btn { width: 100%; padding: 14px; border: 1px solid #d0ccc4; border-radius: 12px; background: #fff; font-family: inherit; font-size: 15px; font-weight: 500; color: #1a1a1a; cursor: pointer; transition: all 0.15s; }
+.btn:hover { background: #f5f3f0; }
+.btn:active { transform: scale(0.98); }
+.btn:disabled { opacity: 0.4; cursor: default; }
+.btn.primary { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+.btn.primary:hover { background: #333; }
+
+.done-view { display: none; text-align: center; padding: 2rem 0; }
+.done-icon { font-size: 52px; margin-bottom: 1rem; }
+.done-msg { font-size: 20px; font-weight: 500; margin-bottom: 6px; }
+.done-sub { font-size: 14px; color: #888; line-height: 1.6; margin-bottom: 1.5rem; }
+
+.ai-card { background: #fff; border: 1px solid #e8e4de; border-radius: 14px; padding: 1rem 1.25rem; text-align: left; margin-bottom: 1.5rem; }
+.ai-label { font-size: 11px; color: #bbb; letter-spacing: 0.5px; margin-bottom: 8px; }
+.ai-text { font-size: 14px; color: #333; line-height: 1.75; }
+
+.history { margin-top: 2rem; border-top: 1px solid #e8e4de; padding-top: 1.5rem; display: none; }
+.history-title { font-size: 12px; color: #aaa; letter-spacing: 0.5px; margin-bottom: 12px; text-transform: uppercase; }
+.history-item { background: #fff; border: 1px solid #e8e4de; border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; }
+.history-date { font-size: 12px; color: #aaa; margin-bottom: 6px; }
+.history-entry { font-size: 13px; color: #444; padding: 2px 0; }
+.history-entry::before { content: "— "; color: #bbb; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div id="input-view">
+    <div class="header">
+      <div class="date" id="today-date"></div>
+      <h1>今日の感謝を3つ</h1>
+      <div class="streak">🔥 <span id="streak-count">0日連続</span></div>
+    </div>
+
+    <div class="cards">
+      <div class="card">
+        <div class="card-label"><span class="num n1">1</span>感謝できること</div>
+        <textarea id="g1" placeholder="今日、感謝したいことは…" rows="2"></textarea>
+      </div>
+      <div class="card">
+        <div class="card-label"><span class="num n2">2</span>感謝できること</div>
+        <textarea id="g2" placeholder="小さなことでも大丈夫…" rows="2"></textarea>
+      </div>
+      <div class="card">
+        <div class="card-label"><span class="num n3">3</span>感謝できること</div>
+        <textarea id="g3" placeholder="誰かへの感謝でも…" rows="2"></textarea>
+      </div>
+    </div>
+
+    <div class="mood-section">
+      <div class="mood-label">今の気分は？</div>
+      <div class="moods">
+        <button class="mood-btn" data-mood="😔" onclick="selectMood(this)">😔<span class="mood-txt">つらい</span></button>
+        <button class="mood-btn" data-mood="😐" onclick="selectMood(this)">😐<span class="mood-txt">普通</span></button>
+        <button class="mood-btn" data-mood="🙂" onclick="selectMood(this)">🙂<span class="mood-txt">まあまあ</span></button>
+        <button class="mood-btn" data-mood="😊" onclick="selectMood(this)">😊<span class="mood-txt">良い</span></button>
+        <button class="mood-btn" data-mood="😄" onclick="selectMood(this)">😄<span class="mood-txt">最高</span></button>
+      </div>
+    </div>
+
+    <button class="btn primary" id="submit-btn" onclick="submit()" disabled>記録する</button>
+
+    <div class="history" id="history-section">
+      <div class="history-title">最近の記録</div>
+      <div id="history-list"></div>
+    </div>
+  </div>
+
+  <div class="done-view" id="done-view">
+    <div class="done-icon">✨</div>
+    <div class="done-msg" id="done-msg">記録できました！</div>
+    <div class="done-sub">感謝を書くことで、<br>幸福感は平均25%向上するとも言われています。</div>
+    <div class="ai-card" id="ai-card" style="display:none">
+      <div class="ai-label">AI COACH</div>
+      <div class="ai-text" id="ai-text">考え中…</div>
+    </div>
+    <div style="margin-bottom:12px">
+      <label style="font-size:13px;color:#888;display:block;margin-bottom:6px">Anthropic API Key（AIコメントを使う場合）</label>
+      <input id="api-key-stored" type="password" placeholder="sk-ant-..." style="width:100%;padding:10px 12px;border:1px solid #e8e4de;border-radius:10px;font-size:14px;outline:none;font-family:inherit;background:#fff">
+    </div>
+    <button class="btn" onclick="reset()" style="margin-top:8px">最初に戻る</button>
+  </div>
+</div>
+
+<script>
+let selectedMood = null;
+
+function getToday() {
+  return new Date().toLocaleDateString('ja-JP',{year:'numeric',month:'long',day:'numeric',weekday:'short'});
+}
+function getTodayKey() {
+  return new Date().toISOString().split('T')[0];
+}
+
+document.getElementById('today-date').textContent = getToday();
+
+function updateStreak() {
+  let data = JSON.parse(localStorage.getItem('gj_streak') || '{"count":0,"lastDate":""}');
+  const today = getTodayKey();
+  const yesterday = new Date(Date.now()-86400000).toISOString().split('T')[0];
+  if(data.lastDate === today) {
+    document.getElementById('streak-count').textContent = data.count+'日連続';
+    return data.count;
+  }
+  if(data.lastDate === yesterday) data.count++;
+  else data.count = 1;
+  data.lastDate = today;
+  localStorage.setItem('gj_streak', JSON.stringify(data));
+  document.getElementById('streak-count').textContent = data.count+'日連続';
+  return data.count;
+}
+updateStreak();
+loadHistory();
+
+['g1','g2','g3'].forEach(id => document.getElementById(id).addEventListener('input', checkReady));
+
+function checkReady() {
+  const ok = ['g1','g2','g3'].every(id => document.getElementById(id).value.trim());
+  document.getElementById('submit-btn').disabled = !ok;
+}
+
+function selectMood(btn) {
+  document.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  selectedMood = btn.dataset.mood;
+}
+
+function saveEntry(entries) {
+  let h = JSON.parse(localStorage.getItem('gj_history') || '[]');
+  h.unshift({date:getToday(), key:getTodayKey(), entries, mood:selectedMood});
+  if(h.length>30) h=h.slice(0,30);
+  localStorage.setItem('gj_history', JSON.stringify(h));
+}
+
+function loadHistory() {
+  let h = JSON.parse(localStorage.getItem('gj_history') || '[]');
+  if(!h.length) return;
+  document.getElementById('history-section').style.display = 'block';
+  document.getElementById('history-list').innerHTML = h.slice(0,3).map(r=>`
+    <div class="history-item">
+      <div class="history-date">${r.date} ${r.mood||''}</div>
+      ${r.entries.map(e=>`<div class="history-entry">${e}</div>`).join('')}
+    </div>
+  `).join('');
+}
+
+async function submit() {
+  const g1=document.getElementById('g1').value.trim();
+  const g2=document.getElementById('g2').value.trim();
+  const g3=document.getElementById('g3').value.trim();
+  saveEntry([g1,g2,g3]);
+  let streak = JSON.parse(localStorage.getItem('gj_streak')||'{"count":1}').count;
+  document.getElementById('input-view').style.display='none';
+  document.getElementById('done-view').style.display='block';
+  document.getElementById('done-msg').textContent = streak+'日連続達成！🎉';
+
+  const apiKey = document.getElementById('api-key-stored').value.trim() || localStorage.getItem('gj_apikey') || '';
+  if(apiKey) {
+    localStorage.setItem('gj_apikey', apiKey);
+    const card = document.getElementById('ai-card');
+    card.style.display='block';
+    try {
+      const res = await fetch('https://api.anthropic.com/v1/messages',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+        body:JSON.stringify({
+          model:'claude-sonnet-4-20250514',
+          max_tokens:300,
+          system:'あなたは温かく共感的なウェルネスコーチです。ユーザーの3つの感謝を読み、一日を労い、ポジティブな気づきを3〜4文で伝えてください。押しつけがましくなく、自然に。日本語で。',
+          messages:[{role:'user',content:`今日の感謝:\n1. ${g1}\n2. ${g2}\n3. ${g3}\n気分: ${selectedMood||'未記録'}`}]
+        })
+      });
+      const data = await res.json();
+      document.getElementById('ai-text').textContent = data.content?.[0]?.text || 'ありがとうございます。今日も記録できましたね。';
+    } catch(e) {
+      document.getElementById('ai-text').textContent = '今日も3つの感謝を見つけられましたね。続けることが力になります。';
+    }
+  }
+}
+
+function reset() {
+  document.getElementById('done-view').style.display='none';
+  document.getElementById('input-view').style.display='block';
+  ['g1','g2','g3'].forEach(id => document.getElementById(id).value='');
+  document.querySelectorAll('.mood-btn').forEach(b=>b.classList.remove('selected'));
+  selectedMood=null;
+  document.getElementById('submit-btn').disabled=true;
+  loadHistory();
+}
+</script>
+</body>
+</html>
