@@ -325,7 +325,11 @@ function loadHistory() {
       ${r.photo ? `<img class="history-photo" src="data:image/jpeg;base64,${r.photo}" alt="写真">` : ''}
     </div>
   `).join('');
-  drawMoodChart(h);
+  const moodData = h.filter(r=>r.mood);
+  if(moodData.length >= 2) {
+    document.getElementById('chart-section').style.display = 'block';
+    requestAnimationFrame(()=>drawMoodChart(h));
+  }
 }
 
 let chartMode = 'week';
